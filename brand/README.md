@@ -1,0 +1,3 @@
+# The lockups
+
+The games' lockups for the profile README, in the fashion of [Tycho's](https://github.com/doctorallen/tycho/blob/main/docs/brand/README.md): each game's own app icon beside its name in the game's own face and colors (Dragon Pixel as teal neon, the star's painted golds, VT323 in phosphor green, Silkscreen in moss over parchment), one file for a dark page (`<game>-lockup.svg`) and one for a light page (`<game>-lockup-on-light.svg`). `python3 brand/make.py` draws them again from the icons in the games' repositories (sibling checkouts, or GitHub). Tycho's, Deckard's and Esper Themes' are copies of their own.
