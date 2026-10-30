@@ -4,14 +4,14 @@
 # face and colors. Under the White Dragon is set in Dragon Pixel, the game's
 # font, as teal neon; Lodestar in the squared face Tycho's wordmark uses,
 # painted in short strokes of the star's golds the way the game paints;
-# NEO in VT323, phosphor green with its glow; Merryfolk in Silkscreen, moss
-# over a parchment shadow as its title is. One file for a dark page and one
+# NEO in VT323, phosphor green with its glow; Merryfolk in Pixelify Sans,
+# moss over a parchment shadow as its title is. One file for a dark page and one
 # for a light page. Everything is pixel art drawn as rectangles with crisp
 # edges, so it scales sharp by whole numbers.
 #
 #   python3 brand/make.py     (needs Pillow, fontTools and brotli; reads the
 #                              icons and fonts from the sibling checkouts of
-#                              the games, or from GitHub, and Silkscreen from
+#                              the games, or from GitHub, and Pixelify Sans from
 #                              Google Fonts)
 import base64, io, os, random, re, urllib.request
 from PIL import Image, ImageDraw, ImageFont
@@ -43,18 +43,22 @@ def vt323():
     css = source('Neo', 'css/font.css').decode()
     return base64.b64decode(re.search(r'base64,([A-Za-z0-9+/=]+)', css).group(1))
 
-def silkscreen():
-    # Silkscreen Bold, Merryfolk's title face, from Google Fonts (the Latin file)
-    css = fetch('https://fonts.googleapis.com/css2?family=Silkscreen:wght@700&display=swap').decode()
-    url = [u for u in re.findall(r'url\((https://[^)]+)\)', css)][-1]   # (the last block is Latin)
+def pixelify():
+    # Pixelify Sans Bold, Merryfolk's title face (its --font-ui; Silkscreen
+    # ahead of it in the stack is only for two digits), from Google Fonts
+    css = fetch('https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@700&display=swap').decode()
+    url = re.findall(r'url\((https://[^)]+)\)', css)[-1]   # (the last block is Latin)
     from fontTools.ttLib import TTFont
     f = TTFont(io.BytesIO(fetch(url))); f.flavor = None
     out = io.BytesIO(); f.save(out); return out.getvalue()
 
-def font_rows(ttf, text, size, cell, spacing=0):
+def font_rows(ttf, text, size, cell, spacing=0, square=None):
     # a pixel font's text read back onto its grid: each letter drawn large,
     # thresholded and sampled at the centers of its cells, then set side by
-    # side with the font's own advance and any letter spacing, in cells
+    # side with the font's own advance and any letter spacing, in cells (a
+    # face whose pixels are squares bigger than its grid's step, as Pixelify
+    # Sans Bold's are, says how big: square)
+    square = square or cell
     font = ImageFont.truetype(io.BytesIO(ttf), size)
     glyphs = []
     for ch in text:
@@ -68,9 +72,9 @@ def font_rows(ttf, text, size, cell, spacing=0):
             glyphs.append((adv, 0, 0, [])); continue
         x0, y0 = xs[0], ys[0]
         rows = []
-        for y in range(y0 + cell // 2, ys[-1] + 1, cell):
-            rows.append(''.join('#' if px[x, y] > 128 else '.' for x in range(x0 + cell // 2, xs[-1] + 1, cell)))
-        glyphs.append((adv, round((x0 - size // 2) / cell), round((y0 - size // 2) / cell), rows))
+        for y in range(y0 + square // 2, ys[-1] + 1 - (square - cell) // 2, cell):
+            rows.append(''.join('#' if px[x, y] > 128 else '.' for x in range(x0 + square // 2, xs[-1] + 1 - (square - cell) // 2, cell)))
+        glyphs.append((adv, round((x0 + (square - cell) / 2 - size // 2) / cell), round((y0 + (square - cell) / 2 - size // 2) / cell), rows))
     top = min(y for a, x, y, r in glyphs if r); bot = max(y + len(r) for a, x, y, r in glyphs if r)
     width = sum(a + spacing for a, x, y, r in glyphs) - spacing
     grid = [['.'] * width for _ in range(bot - top)]
@@ -152,15 +156,20 @@ def painted(rows, ramp, seed=7, stroke=(2, 4), jitter=0.14):
             for xx in xs: cells[(xx, y)] = (ramp[i], 1)
     return cells, 0
 
-def shadowed(rows, ink, shadow, alpha=1, d=0.5):
-    # Merryfolk's title: the ink over a hard shadow half a cell down and right
+def shadowed(rows, ink, shadow, alpha=1, under='#2a1c12', under_alpha=0.2, square=1.5):
+    # Merryfolk's title: the ink over a hard parchment shadow half a cell
+    # down and right, and a faint ink one a cell down and right; each pixel
+    # a square wider than its cell, as the face draws them, so they overlap
     cells = {}
     for y, r in enumerate(rows):
         for x, c in enumerate(r):
-            if c == '#': cells[(x + d, y + d)] = (shadow, alpha)
+            if c == '#': cells[(x + 1, y + 1)] = (under, under_alpha, square)
     for y, r in enumerate(rows):
         for x, c in enumerate(r):
-            if c == '#': cells[(x, y)] = (ink, 1)
+            if c == '#': cells[(x + 0.5, y + 0.5)] = (shadow, alpha, square)
+    for y, r in enumerate(rows):
+        for x, c in enumerate(r):
+            if c == '#': cells[(x, y)] = (ink, 1, square)
     return cells, 1
 
 # --- the lockups --------------------------------------------------------------
@@ -171,9 +180,13 @@ def mark_png(data, px=128):
     return base64.b64encode(out.getvalue()).decode()
 
 def paths(cells):
+    # the cells as rectangles, a path a color; a cell may carry a size other
+    # than one, drawn centered on it
     runs = {}
-    for (x, y), (col, a) in cells.items():
-        runs.setdefault((col, a), []).append(f'M{x:g} {y:g}h1v1h-1z')
+    for (x, y), v in cells.items():
+        col, a, sz = v if len(v) == 3 else (v[0], v[1], 1)
+        d = (sz - 1) / 2
+        runs.setdefault((col, a), []).append(f'M{x - d:g} {y - d:g}h{sz:g}v{sz:g}h-{sz:g}z')
     return [f'<path fill="{c}"{"" if a >= 1 else f" fill-opacity={chr(34)}{a}{chr(34)}"} d="{"".join(ds)}"/>' for (c, a), ds in sorted(runs.items(), key=lambda kv: -kv[0][1])]
 
 def lockup(label, icon, blocks):
@@ -229,10 +242,11 @@ if __name__ == '__main__':
     write('neo', 'NEO', icon,
           [block(neon(rows, '#3cff6e', '#eaffef', '#3cff6e', 0.3, 0.12, lit_rows=1), 4)],
           [block(neon(rows, '#118a3b', '#2bb85a', '#3cff6e', 0.3, 0.12, lit_rows=1), 4)])
-    # Merryfolk: Silkscreen Bold, the title's moss over a parchment shadow a
-    # half-cell down and right (the intro's text-shadow), at four to one
+    # Merryfolk: Pixelify Sans Bold as the title sets it, moss (--moss) over
+    # its parchment shadow (--parch-3) and the fainter ink one, at three to
+    # one; the face's grid steps 87.5 units with squares of 128
     icon = source('merryfolk', 'icons/icon-512.png')
-    rows = font_rows(silkscreen(), 'Merryfolk', 80, 10)
+    rows = font_rows(pixelify(), 'Merryfolk', 320, 28, square=41)
     write('merryfolk', 'Merryfolk', icon,
-          [block(shadowed(rows, '#5c8f3e', '#d8bf88', 0.5), 4)],
-          [block(shadowed(rows, '#3f6b2f', '#d8bf88'), 4)])
+          [block(shadowed(rows, '#5c8f3e', '#d8bf88', 0.5, '#000000', 0.35), 3)],
+          [block(shadowed(rows, '#3f6b2f', '#d8bf88'), 3)])

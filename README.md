@@ -20,7 +20,7 @@ Small pixel games for the phone browser, in plain JavaScript: no build step, no 
     <td>A five-minute twin-stick roguelite. You wake at your desk at 3:14 in the morning and walk out into a dungeon of code that builds itself as you go. Every fight is a hack, and the loot drops the way it does in Diablo.<br><b><a href="https://doctorallen.github.io/Neo/">Play</a></b> · <a href="https://github.com/doctorallen/Neo">Source</a></td>
   </tr>
   <tr>
-    <td><a href="https://github.com/doctorallen/merryfolk"><picture><source media="(prefers-color-scheme: dark)" srcset="brand/merryfolk-lockup.svg"><img src="brand/merryfolk-lockup-on-light.svg" alt="Merryfolk" width="322" height="64"></picture></a></td>
+    <td><a href="https://github.com/doctorallen/merryfolk"><picture><source media="(prefers-color-scheme: dark)" srcset="brand/merryfolk-lockup.svg"><img src="brand/merryfolk-lockup-on-light.svg" alt="Merryfolk" width="258" height="64"></picture></a></td>
     <td>A cozy artificial-life game in the spirit of <i>Creatures</i>, set in Thistledown, a Shire-like village of hobbit-holes. Villagers are born with a genome, grow up learning, take up trades, fall in love and raise families who inherit their looks and nature, and the village grows with them.<br><b><a href="https://doctorallen.github.io/merryfolk/">Play</a></b> · <a href="https://github.com/doctorallen/merryfolk">Source</a></td>
   </tr>
   <tr>
